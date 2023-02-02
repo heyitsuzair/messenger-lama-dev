@@ -12,6 +12,7 @@ const conversationRoute = require("./routes/conversations");
 const messageRoute = require("./routes/messages");
 const router = express.Router();
 const path = require("path");
+const cors = require("cors");
 
 dotenv.config();
 
@@ -27,6 +28,7 @@ app.use("/images", express.static(path.join(__dirname, "public/images")));
 //middleware
 app.use(express.json());
 app.use(helmet());
+app.use(cors());
 app.use(morgan("common"));
 
 const storage = multer.diskStorage({
@@ -53,6 +55,6 @@ app.use("/api/posts", postRoute);
 app.use("/api/conversations", conversationRoute);
 app.use("/api/messages", messageRoute);
 
-app.listen(8800, () => {
+app.listen(5000, () => {
   console.log("Backend server is running!");
 });
