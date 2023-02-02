@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import Topbar from "../../components/topbar/Topbar";
 import Conversation from "../../components/conversations/Conversation";
 import "./messenger.css";
@@ -6,12 +6,54 @@ import Message from "../../components/message/Message";
 import ChatOnline from "../../components/chatOnline/ChatOnline";
 import { AuthContext } from "../../context/AuthContext";
 import axios from "axios";
+import { io } from "socket.io-client";
 
 const Messenger = () => {
   const [conversations, setConversations] = useState([]);
   const [currentChat, setCurrentChat] = useState(null);
   const [messages, setMessages] = useState();
+  const [newMessage, setNewMessage] = useState("");
+  const scrollRef = useRef();
+  const socket = useRef();
   const { user } = useContext(AuthContext);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    const message = {
+      sender: user._id,
+      text: newMessage,
+      conversationId: currentChat._id,
+    };
+
+    try {
+      const { data } = await axios.post(
+        process.env.REACT_APP_API_HOST + "messages/",
+        message
+      );
+      setMessages([...messages, data]);
+      setNewMessage("");
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  useEffect(() => {
+    socket.current = io("ws://localhost:8900");
+  }, []);
+
+  useEffect(() => {
+    socket.current.emit("addUser", user._id);
+    socket.current.on("getUsers", (users) => {
+      console.log(users);
+    });
+  }, []);
+
+  useEffect(() => {
+    socket.current.on("welcome", (message) => {
+      console.log(message);
+    });
+  }, [socket]);
 
   useEffect(() => {
     const getConversations = async () => {
@@ -26,6 +68,10 @@ const Messenger = () => {
     };
     getConversations();
   }, []);
+
+  useEffect(() => {
+    scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   useEffect(() => {
     const getMessages = async () => {
@@ -71,10 +117,12 @@ const Messenger = () => {
                 <div className="chatBoxTop">
                   {messages.map((message) => {
                     return (
-                      <Message
-                        own={message.sender === user._id}
-                        message={message}
-                      />
+                      <div ref={scrollRef}>
+                        <Message
+                          own={message.sender === user._id}
+                          message={message}
+                        />
+                      </div>
                     );
                   })}
                 </div>
@@ -82,8 +130,15 @@ const Messenger = () => {
                   <textarea
                     className="chatMessageInput"
                     placeholder="Write Something..."
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    value={newMessage}
                   ></textarea>
-                  <button className="chatSubmitButton">Send</button>
+                  <button
+                    className="chatSubmitButton"
+                    onClick={(e) => handleSubmit(e)}
+                  >
+                    Send
+                  </button>
                 </div>
               </>
             ) : (
