@@ -13,6 +13,7 @@ const Messenger = () => {
   const [currentChat, setCurrentChat] = useState(null);
   const [messages, setMessages] = useState();
   const [newMessage, setNewMessage] = useState("");
+  const [arrivalMessage, setArrivalMessage] = useState(null);
   const scrollRef = useRef();
   const socket = useRef();
   const { user } = useContext(AuthContext);
@@ -25,6 +26,16 @@ const Messenger = () => {
       text: newMessage,
       conversationId: currentChat._id,
     };
+
+    const receiverId = currentChat.members.find(
+      (member) => member !== user._id
+    );
+
+    socket.current.emit("sendMessage", {
+      senderId: user._id,
+      text: newMessage,
+      receiverId,
+    });
 
     try {
       const { data } = await axios.post(
@@ -39,7 +50,21 @@ const Messenger = () => {
   };
 
   useEffect(() => {
+    arrivalMessage &&
+      currentChat?.members.includes(arrivalMessage.sender) &&
+      setMessages((prev) => [...prev, arrivalMessage]);
+  }, [arrivalMessage, currentChat]);
+
+  useEffect(() => {
     socket.current = io("ws://localhost:8900");
+    socket.current.on("getMessage", (data) => {
+      console.log(data);
+      setArrivalMessage({
+        sender: data.senderId,
+        text: data.text,
+        createdAt: Date.now(),
+      });
+    });
   }, []);
 
   useEffect(() => {
@@ -47,7 +72,7 @@ const Messenger = () => {
     socket.current.on("getUsers", (users) => {
       console.log(users);
     });
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     socket.current.on("welcome", (message) => {
@@ -67,7 +92,7 @@ const Messenger = () => {
       }
     };
     getConversations();
-  }, []);
+  }, [user._id]);
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
